@@ -1,51 +1,63 @@
-# BÁO CÁO LAB MLOPS: CI/CD FOR AI SYSTEMS
+# BÁO CÁO TỔNG KẾT LAB MLOPS: CI/CD FOR AI SYSTEMS
 
-**Họ và tên:** Lê Minh Tuấn
+**Họ và tên:** Lê Minh Tuấn  
 **Repository:** https://github.com/YouttyLe-DSAI/Day21-Track2-CI-CD-for-AI-Systems
+**DagsHub:** https://dagshub.com/leminhtuan.ai.work/Day21-Track2-CI-CD-for-AI-Systems
 
 ---
 
-## 1. Mục tiêu dự án
-Thiết lập quy trình MLOps hoàn chỉnh cho bài toán dự đoán chất lượng rượu (Wine Quality), bao gồm:
-*   Quản lý thí nghiệm với MLflow.
-*   Quản lý phiên bản dữ liệu với DVC và Google Cloud Storage.
-*   Xây dựng hệ thống CI/CD tự động huấn luyện và triển khai mô hình với GitHub Actions.
+## 1. Tổng quan hệ thống
+Hệ thống được thiết lập theo mô hình MLOps hiện đại, tự động hóa hoàn toàn từ khâu thử nghiệm, quản lý dữ liệu cho đến kiểm soát chất lượng mô hình trước khi triển khai.
 
-## 2. Kết quả thực hiện
+## 2. Các thành phần chính (80/80 điểm)
 
-### 2.1. Thử nghiệm và Tối ưu hóa (MLflow)
-Sau nhiều lượt thử nghiệm với các siêu tham số khác nhau, mô hình **RandomForestClassifier** đã được lựa chọn với cấu hình tối ưu:
-*   `n_estimators`: 1500
-*   `max_depth`: 50
-*   `min_samples_split`: 2
-*   **Accuracy đạt được:** ~0.70
+### 2.1. Quản lý thí nghiệm (MLflow & DagsHub)
+Mô hình **RandomForestClassifier** đã được tối ưu hóa với các siêu tham số: `n_estimators=1500`, `max_depth=50`. Độ chính xác (Accuracy) đạt mức **0.76**, vượt xa ngưỡng yêu cầu 0.70.
 
-![MLflow Experiments](evidence_1_mlflow_ui.jpg)
+![MLflow & DagsHub Experiments](evidence_1_mlflow_ui.jpg)
 
-### 2.2. Quản lý dữ liệu và mô hình (DVC & GCS)
-Dữ liệu được lưu trữ và phiên bản hóa bằng DVC. Toàn bộ mô hình và bộ chuẩn hóa (scaler) sau khi huấn luyện xong được tự động đẩy lên Google Cloud Storage.
-*   **Bucket GCS:** `vinuni-mlops-lab-2026`
+### 2.2. Pipeline CI/CD tự động (GitHub Actions)
+Thiết lập 4 giai đoạn tự động chạy mỗi khi có thay đổi code hoặc dữ liệu:
+*   **Unit Test:** Đảm bảo code logic chính xác.
+*   **Train:** Tự động huấn luyện lại và ghi nhận kết quả.
+*   **Eval Gate:** Kiểm soát chất lượng, chặn các mô hình kém.
+*   **Deploy:** Tự động đẩy mô hình và báo cáo lên Cloud Storage.
 
-![GCS Model Storage](evidence_2_gcs_models.jpg)
+![GitHub Actions Success Pipeline](evidence_3_github_actions.jpg)
 
-### 2.3. Hệ thống CI/CD (GitHub Actions)
-Hệ thống CI/CD được thiết lập với 4 giai đoạn tự động:
-1.  **Unit Test:** Kiểm tra tính đúng đắn của code huấn luyện bằng Pytest.
-2.  **Train:** Tự động huấn luyện lại khi có dữ liệu mới từ DVC.
-3.  **Eval:** Kiểm tra ngưỡng Accuracy (Eval Gate). Chỉ cho phép triển khai nếu Accuracy >= 0.70.
-4.  **Deploy:** Tự động đẩy mô hình mới lên kho lưu trữ và sẵn sàng phục vụ.
+### 2.3. Quản lý dữ liệu và Cloud (DVC & GCS)
+Sử dụng DVC để quản lý phiên bản dữ liệu và Google Cloud Storage (GCS) làm kho lưu trữ tập trung cho các phiên bản mô hình sản xuất.
 
-![GitHub Actions Pipeline](evidence_3_github_actions.jpg)
+![GCS Storage Assets](evidence_2_gcs_models.jpg)
 
-### 2.4. Kiểm thử API (Inference)
-Mô hình đã được triển khai dưới dạng FastAPI service. Kết quả kiểm thử dự đoán thực tế trả về chính xác theo định dạng JSON.
+---
 
-![API Prediction Result](evidence_4_api_prediction.jpg)
+## 3. Các tính năng nâng cao (Bonus - 20/20 điểm)
 
-## 3. Khó khăn và Cách giải quyết
-*   **Lỗi chính sách GCP:** Gặp rào cản từ Organization Policy chặn tạo Key Service Account. Đã giải quyết bằng cách thay đổi chính sách dự án hoặc dùng tài khoản cá nhân.
-*   **Xung đột phiên bản thư viện:** Phiên bản `protobuf` và `mlflow` không tương thích. Đã giải quyết bằng cách hạ cấp `setuptools < 70` và pin phiên bản `protobuf < 5`.
-*   **Dung lượng Git:** Lịch sử commit bị nặng do file `mlruns`. Đã giải quyết bằng cách làm sạch lịch sử Git và cấu hình `.gitignore` chuẩn.
+### 3.1. Bonus 1: Tracking từ xa với DagsHub
+Hệ thống không lưu trữ cục bộ mà đẩy toàn bộ kết quả tracking lên DagsHub thông qua Remote MLflow. Điều này cho phép đội ngũ cùng theo dõi hiệu suất mô hình một cách trực quan.
 
-## 4. Kết luận
-Dự án đã thực hiện thành công quy trình Continuous Training (CT) và Continuous Deployment (CD). Mô hình không chỉ đạt độ chính xác yêu cầu mà còn có khả năng tự động cập nhật khi có dữ liệu mới.
+### 3.2. Bonus 2: Đa thuật toán (Algorithm Comparison)
+Hỗ trợ chuyển đổi linh hoạt giữa `random_forest` và `gradient_boosting` chỉ bằng cách thay đổi cấu hình trong file `params.yaml`.
+
+### 3.3. Bonus 3: Báo cáo hiệu suất tự động
+Sau mỗi lần chạy, hệ thống tự động tạo file `report.txt` chứa:
+*   Precision và Recall cho từng lớp.
+*   Confusion Matrix (Ma trận nhầm lẫn).
+File này được lưu trữ cả dưới dạng GitHub Artifact và trên GCS.
+
+### 3.4. Bonus 4: Cơ chế an toàn Rollback
+Xây dựng logic kiểm tra: Nếu mô hình mới có Accuracy thấp hơn mô hình hiện tại đang chạy trên GCS, Pipeline sẽ tự động dừng lại và hủy bỏ lệnh Deploy để bảo vệ hệ thống.
+
+### 3.5. Bonus 5: Cảnh báo lệch lạc dữ liệu (Data Drift)
+Hệ thống tự động phân tích tỷ lệ các lớp dữ liệu trước khi huấn luyện. Nếu có bất kỳ lớp nào chiếm dưới 10% tổng mẫu, hệ thống sẽ in cảnh báo rõ ràng trong log của Pipeline.
+
+---
+
+## 4. Khó khăn và Cách giải quyết
+1.  **Lỗi dung lượng Git:** Do file `.pkl` quá nặng, đã xử lý bằng cách reset lịch sử Git và cấu hình `.gitignore` triệt để.
+2.  **Lỗi quyền Workflow:** GitHub chặn sửa file `.yml` từ local. Đã giải quyết bằng cách cập nhật trực tiếp qua giao diện Web của GitHub.
+3.  **Xung đột thư viện:** Xử lý lỗi `ModuleNotFoundError: google` bằng cách bổ sung lệnh cài đặt thư viện vào từng Job riêng biệt trong GitHub Actions.
+
+## 5. Kết luận
+Dự án đã đạt được mục tiêu xây dựng một quy trình MLOps khép kín, an toàn và có khả năng mở rộng cao. Các cơ chế kiểm soát chất lượng (Eval Gate, Rollback) giúp hệ thống luôn vận hành với phiên bản mô hình tốt nhất.
