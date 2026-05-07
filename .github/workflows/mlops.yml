@@ -45,6 +45,10 @@ jobs:
         run: dvc pull
         
       - name: Train model
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
         run: python src/train.py
         
       - name: Save metrics and report as artifact
@@ -78,11 +82,9 @@ jobs:
           NEW_ACC=$(python -c "import json; print(json.load(open('outputs/metrics.json'))['accuracy'])")
           echo "New Accuracy: $NEW_ACC"
           
-          # Tai metrics cu tu GCS de so sanh
           echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
           export GOOGLE_APPLICATION_CREDENTIALS=gcp-key.json
           
-          # Try to download old metrics
           python -c "
           from google.cloud import storage
           import json
@@ -95,26 +97,21 @@ jobs:
               old_acc = json.load(open('old_metrics.json'))['accuracy']
               print(f'OLD_ACC={old_acc}')
           except Exception as e:
-              print('OLD_ACC=0') # Neu chua co model nao thi mac dinh la 0
+              print('OLD_ACC=0') 
           " > compare_result.txt
           
           source compare_result.txt
           echo "Current Production Accuracy: $OLD_ACC"
           
-          # So sanh voi nguong 0.70 (Main task)
           if (( $(echo "$NEW_ACC < 0.70" | bc -l) )); then
-            echo "FAILED: Accuracy $NEW_ACC duoi nguong 0.70!"
+            echo "Failed: Accuracy too low!"
             exit 1
           fi
           
-          # So sanh voi phien ban cu (Bonus 4)
           if (( $(echo "$NEW_ACC < $OLD_ACC" | bc -l) )); then
-            echo "!!! CANH BAO: Model moi ($NEW_ACC) kem hon model dang chay ($OLD_ACC) !!!"
-            echo "Huy bo Deploy de bao ve he thong."
+            echo "Failed: Accuracy lower than production!"
             exit 1
           fi
-          
-          echo "Thanh cong: Model dat yeu cau va tot hon/bang phien ban cu."
 
   deploy:
     needs: eval
@@ -126,6 +123,14 @@ jobs:
         with:
           name: performance-report
           path: outputs
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install google-cloud-storage
           
       - name: Upload model and metrics to GCS
         run: |
@@ -138,12 +143,10 @@ jobs:
           client = storage.Client()
           bucket = client.bucket('${{ secrets.GCS_BUCKET }}')
           
-          # Upload latest artifacts
-          for f in ['models/model.pkl', 'models/scaler.pkl', 'outputs/metrics.json']:
+          # Upload latest artifacts (Kem ca file report.txt cho Bonus 3)
+          for f in ['models/model.pkl', 'models/scaler.pkl', 'outputs/metrics.json', 'outputs/report.txt']:
               if os.path.exists(f):
                   blob = bucket.blob(f.replace('models/', 'models/latest/'))
                   blob.upload_from_filename(f)
                   print(f'Uploaded {f}')
           "
-      - name: Final Notification
-        run: echo "Deployment and Cloud Sync successful with Bonus features!"
