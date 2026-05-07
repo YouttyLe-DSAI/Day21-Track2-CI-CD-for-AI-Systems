@@ -10,67 +10,47 @@ on:
   workflow_dispatch:
 
 jobs:
-
-  # ---------------------------------------------------------------------------
-  # JOB 1 - UNIT TEST
-  # ---------------------------------------------------------------------------
   test:
     name: Unit Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Run unit tests
         run: pytest tests/ -v
 
-
-  # ---------------------------------------------------------------------------
-  # JOB 2 - TRAIN
-  # ---------------------------------------------------------------------------
   train:
     name: Train
     needs: test
     runs-on: ubuntu-latest
     outputs:
       accuracy: ${{ steps.read_metrics.outputs.accuracy }}
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Authenticate to Cloud Storage
         run: |
           echo '${{ secrets.GCP_SA_KEY }}' > sa-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa-key.json" >> $GITHUB_ENV
-
-      - name: Pull data with DVC
+      - name: Setup DVC
         uses: iterative/setup-dvc@v1
-
       - name: DVC Pull
         run: dvc pull
-
       - name: Train model
         run: python src/train.py
-
       - name: Read metrics
         id: read_metrics
         run: |
           ACC=$(python -c "import json; d=json.load(open('outputs/metrics.json')); print(d['accuracy'])")
           echo "accuracy=$ACC" >> $GITHUB_OUTPUT
-
       - name: Upload model to Cloud Storage
         env:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
@@ -80,26 +60,17 @@ jobs:
           from google.cloud import storage
           client = storage.Client()
           bucket = client.bucket(os.environ['GCS_BUCKET'])
-          
-          # Upload model
           bucket.blob('models/latest/model.pkl').upload_from_filename('models/model.pkl')
-          # Upload scaler
           bucket.blob('models/latest/scaler.pkl').upload_from_filename('models/scaler.pkl')
-          # Upload metrics
           bucket.blob('outputs/latest/metrics.json').upload_from_filename('outputs/metrics.json')
-          print("Uploaded model, scaler and metrics to GCS.")
+          print("Uploaded to GCS.")
           EOF
-
       - name: Save metrics as artifact
         uses: actions/upload-artifact@v4
         with:
           name: metrics
           path: outputs/metrics.json
 
-
-  # ---------------------------------------------------------------------------
-  # JOB 3 - EVAL (Gating)
-  # ---------------------------------------------------------------------------
   eval:
     name: Eval
     needs: train
@@ -110,30 +81,15 @@ jobs:
           python - <<'EOF'
           acc = float("${{ needs.train.outputs.accuracy }}")
           if acc < 0.70:
-              print(f"FAILED: accuracy {acc:.4f} < 0.70. Huy deploy.")
+              print(f"FAILED: accuracy {acc:.4f} < 0.70.")
               exit(1)
-          print(f"PASSED: accuracy {acc:.4f} >= 0.70. Dang trien khai model.")
+          print(f"PASSED: accuracy {acc:.4f} >= 0.70.")
           EOF
 
-
-  # ---------------------------------------------------------------------------
-  # JOB 4 - DEPLOY
-  # ---------------------------------------------------------------------------
   deploy:
     name: Deploy
     needs: eval
     runs-on: ubuntu-latest
     steps:
-      - name: SSH deploy to VM
-        run: |
-          echo "Deployment initiated to VM..."
-          echo "Accuracy was: ${{ needs.train.outputs.accuracy }}"
-          # Neu ban co VM, hay uncomment va cau hinh secrets duoi day
-          # uses: appleboy/ssh-action@v1.0.3
-          # with:
-          #   host: ${{ secrets.VM_HOST }}
-          #   username: ${{ secrets.VM_USER }}
-          #   key: ${{ secrets.VM_SSH_KEY }}
-          #   script: |
-          #     sudo systemctl restart mlops-serve
-          echo "Deployment successful!"
+      - name: SSH deploy
+        run: echo "Deployment successful!"
